@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pong Game</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #141d33;
+      --line: #d9e4ff;
+      --text: #eef3ff;
+      --paddle: #7dd3fc;
+      --ball: #fbbf24;
+      --accent: #c4b5fd;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at top, #18213d, var(--bg));
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .game-wrap {
+      background: rgba(20, 29, 51, 0.9);
+      border: 2px solid rgba(217, 228, 255, 0.7);
+      border-radius: 16px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+      padding: 18px 18px 12px;
+    }
+
+    canvas {
+      display: block;
+      width: min(90vw, 900px);
+      height: auto;
+      background: var(--bg);
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      box-shadow: inset 0 0 30px rgba(255, 255, 255, 0.04);
+    }
+
+    .scoreboard {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 24px;
+      font-size: 2rem;
+      font-weight: bold;
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+
+    .scoreboard span {
+      min-width: 54px;
+      text-align: center;
+    }
+
+    .scoreboard .divider {
+      color: var(--accent);
+      opacity: 0.7;
+      font-size: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-wrap">
+    <div class="scoreboard">
+      <span id="leftScore">0</span>
+      <span class="divider">:</span>
+      <span id="rightScore">0</span>
+    </div>
+    <canvas id="gameCanvas" width="900" height="500"></canvas>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const leftScoreEl = document.getElementById("leftScore");
+    const rightScoreEl = document.getElementById("rightScore");
+
+    const paddleWidth = 16;
+    const paddleHeight = 110;
+    const paddleSpeed = 7;
+
+    const ball = {
+      x: canvas.width / 2,
+      y: canvas.height / 2,
+      radius: 10,
+      vx: 5,
+      vy: 3
+    };
+
+    const leftPaddle = {
+      x: 24,
+      y: canvas.height / 2 - paddleHeight / 2,
+      width: paddleWidth,
+      height: paddleHeight,
+      targetY: canvas.height / 2 - paddleHeight / 2
+    };
+
+    const rightPaddle = {
+      x: canvas.width - 24 - paddleWidth,
+      y: canvas.height / 2 - paddleHeight / 2,
+      width: paddleWidth,
+      height: paddleHeight
+    };
+
+    let leftScore = 0;
+    let rightScore = 0;
+
+    const keys = {
+      ArrowUp: false,
+      ArrowDown: false
+    };
+
+    function resetBall(direction = 1) {
+      ball.x = canvas.width / 2;
+      ball.y = canvas.height / 2;
+
+      const angle = (Math.random() * 1.2) - 0.6;
+      const speed = 5.5;
+
+      ball.vx = direction * speed * Math.cos(angle);
+      ball.vy = speed * Math.sin(angle);
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
+
+    function updateLeftPaddle() {
+      if (keys.ArrowUp) {
+        leftPaddle.targetY -= paddleSpeed;
+      }
+      if (keys.ArrowDown) {
+        leftPaddle.targetY += paddleSpeed;
+      }
+
+      leftPaddle.targetY = clamp(
+        leftPaddle.targetY,
+        0,
+        canvas.height - leftPaddle.height
+      );
+
+      leftPaddle.y += (leftPaddle.targetY - leftPaddle.y) * 0.35;
+      leftPaddle.y = clamp(leftPaddle.y, 0, canvas.height - leftPaddle.height);
+    }
+
+    function updateRightPaddle() {
+      const targetCenter = ball.y;
+      const paddleCenter = rightPaddle.y + rightPaddle.height / 2;
+      const diff = targetCenter - paddleCenter;
+
+      rightPaddle.y += diff * 0.12;
+      rightPaddle.y = clamp(rightPaddle.y, 0, canvas.height - rightPaddle.height);
+    }
+
+    function updateBall() {
+      ball.x += ball.vx;
+      ball.y += ball.vy;
+
+      if (ball.y - ball.radius <= 0 || ball.y + ball.radius >= canvas.height) {
+        ball.vy *= -1;
+        ball.y = clamp(ball.y, ball.radius, canvas.height - ball.radius);
+      }
+
+      const leftX = leftPaddle.x;
+      const leftY = leftPaddle.y;
+      const rightX = rightPaddle.x;
+      const rightY = rightPaddle.y;
+
+      const hitsLeftPaddle =
+        ball.x - ball.radius <= leftX + leftPaddle.width &&
+        ball.x + ball.radius >= leftX &&
+        ball.y >= leftY &&
+        ball.y <= leftY + leftPaddle.height &&
+        ball.vx < 0;
+
+      const hitsRightPaddle =
+        ball.x + ball.radius >= rightX &&
+        ball.x - ball.radius <= rightX + rightPaddle.width &&
+        ball.y >= rightY &&
+        ball.y <= rightY + rightPaddle.height &&
+        ball.vx > 0;
+
+      if (hitsLeftPaddle) {
+        const impact = (ball.y - (leftY + leftPaddle.height / 2)) / (leftPaddle.height / 2);
+        ball.x = leftX + leftPaddle.width + ball.radius;
+        ball.vx = Math.abs(ball.vx) + 0.15;
+        ball.vy = impact * 6 + ball.vy * 0.5;
+      }
+
+      if (hitsRightPaddle) {
+        const impact = (ball.y - (rightY + rightPaddle.height / 2)) / (rightPaddle.height / 2);
+        ball.x = rightX - ball.radius;
+        ball.vx = -Math.abs(ball.vx) - 0.15;
+        ball.vy = impact * 6 + ball.vy * 0.5;
+      }
+
+      if (ball.x - ball.radius < 0) {
+        rightScore += 1;
+        rightScoreEl.textContent = rightScore;
+        resetBall(1);
+      }
+
+      if (ball.x + ball.radius > canvas.width) {
+        leftScore += 1;
+        leftScoreEl.textContent = leftScore;
+        resetBall(-1);
+      }
+    }
+
+    function drawCenterLine() {
+      ctx.strokeStyle = "rgba(255,255,255,0.35)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([12, 12]);
+      ctx.beginPath();
+      ctx.moveTo(canvas.width / 2, 0);
+      ctx.lineTo(canvas.width / 2, canvas.height);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function drawPaddle(x, y, width, height, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, width, height);
+    }
+
+    function drawBall() {
+      ctx.beginPath();
+      ctx.fillStyle = "#fbbf24";
+      ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawCenterLine();
+      drawPaddle(leftPaddle.x, leftPaddle.y, leftPaddle.width, leftPaddle.height, "#7dd3fc");
+      drawPaddle(rightPaddle.x, rightPaddle.y, rightPaddle.width, rightPaddle.height, "#c4b5fd");
+      drawBall();
+    }
+
+    function gameLoop() {
+      updateLeftPaddle();
+      updateRightPaddle();
+      updateBall();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+        event.preventDefault();
+      }
+      if (event.key in keys) {
+        keys[event.key] = true;
+      }
+    });
+
+    document.addEventListener("keyup", (event) => {
+      if (event.key in keys) {
+        keys[event.key] = false;
+      }
+    });
+
+    canvas.addEventListener("mousemove", (event) => {
+      const rect = canvas.getBoundingClientRect();
+      const mouseY = event.clientY - rect.top;
+      leftPaddle.targetY = mouseY - leftPaddle.height / 2;
+      leftPaddle.targetY = clamp(leftPaddle.targetY, 0, canvas.height - leftPaddle.height);
+    });
+
+    resetBall(1);
+    gameLoop();
+  </script>
+</body>
+</html>
